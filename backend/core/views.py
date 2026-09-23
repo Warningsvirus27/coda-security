@@ -36,11 +36,27 @@ class DocumentViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['post'])
     def sync(self, request):
         """Trigger a manual document sync from Coda API."""
+        from core.models import ScanConfig
+        config = ScanConfig.get_config()
+        if not config.coda_api_token:
+            return Response(
+                {
+                    'error': 'Cannot sync Coda documents: No Coda API key configured. Please add your API key in Settings first.'
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         from scanner.tasks import sync_documents
-        task = sync_documents.delay()
-        logger.info("Manual document sync triggered, task_id=%s", task.id)
+        try:
+            task = sync_documents.delay()
+            task_id = str(task.id)
+        except Exception:
+            task_id = "local-sync"
+            sync_documents()
+
+        logger.info("Manual document sync triggered, task_id=%s", task_id)
         return Response(
-            {'status': 'sync_started', 'task_id': str(task.id)},
+            {'status': 'sync_started', 'message': 'Document sync initiated with Coda API.', 'task_id': task_id},
             status=status.HTTP_202_ACCEPTED,
         )
 
@@ -48,8 +64,17 @@ class DocumentViewSet(viewsets.ReadOnlyModelViewSet):
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint for viewing the remediation audit trail.
+    Strictly scoped to the logged-in user.
     """
-    queryset = AuditLog.objects.select_related('alert', 'alert__document').all()
     serializer_class = AuditLogSerializer
     filterset_fields = ['action_type', 'success']
     ordering_fields = ['performed_at']
+
+    def get_queryset(self):
+        from django.db.models import Q
+        user = self.request.user
+        if user.is_authenticated:
+            return AuditLog.objects.select_related('alert', 'alert__document').filter(
+                Q(user=user) | Q(performed_by=user.username)
+            ).order_by('-performed_at')
+        return AuditLog.objects.none()

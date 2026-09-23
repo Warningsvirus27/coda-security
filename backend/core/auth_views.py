@@ -1,6 +1,7 @@
 import logging
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -224,10 +225,19 @@ class GoogleSSOView(APIView):
 class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Class-based viewset to query user activities and change logs.
+    Strictly filters activities to the currently logged in user.
     """
-    queryset = UserActivityLog.objects.all()
     serializer_class = UserActivityLogSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ['action', 'username']
-    search_fields = ['username', 'action', 'description', 'ip_address']
+    filterset_fields = ['action']
+    search_fields = ['action', 'description', 'ip_address']
     ordering_fields = ['created_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            # Strictly show activities for the currently logged-in user
+            return UserActivityLog.objects.filter(
+                Q(user=user) | Q(username=user.username)
+            ).order_by('-created_at')
+        return UserActivityLog.objects.none()

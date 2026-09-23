@@ -19,6 +19,16 @@ class ScanViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'])
     def trigger(self, request):
         """Manually triggers a full security scan."""
+        from core.models import ScanConfig
+        config = ScanConfig.get_config()
+        if not config.coda_api_token:
+            return Response(
+                {
+                    'error': 'Cannot run scan: No Coda API key configured. Please add your API key in Settings first.'
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user = request.user if request.user.is_authenticated else None
         user_name = user.username if user else 'anonymous'
 

@@ -135,11 +135,19 @@ class RemediationViewSet(viewsets.ViewSet):
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Class-based ViewSet for viewing the complete remediation audit trail.
+    Strictly scoped to the logged-in user.
     """
-    queryset = AuditLog.objects.select_related('alert', 'alert__document', 'user').all()
     serializer_class = RemediationAuditLogSerializer
     permission_classes = [permissions.AllowAny]
     filterset_fields = ['action_type', 'success']
     search_fields = ['alert__title', 'performed_by', 'error_message']
     ordering_fields = ['performed_at']
     ordering = ['-performed_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            return AuditLog.objects.select_related('alert', 'alert__document', 'user').filter(
+                Q(user=user) | Q(performed_by=user.username)
+            ).order_by('-performed_at')
+        return AuditLog.objects.none()

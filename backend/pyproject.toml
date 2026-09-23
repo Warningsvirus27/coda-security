@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "securecoda-backend"
+version = "1.0.0"
+description = "SecureCoda: Activity & Exposure Monitor for Coda documents"
+authors = ["Metron Labs Security Team <security@metronlabs.com>"]
+readme = "README.md"
+packages = [{include = "core"}, {include = "scanner"}, {include = "alerts"}, {include = "remediation"}, {include = "config"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^5.2.17"
+djangorestframework = "^3.18.1"
+django-filter = "^24.3"
+django-cors-headers = "^4.9.0"
+django-allauth = "^64.2.1"
+daphne = "^4.2.3"
+channels = "^4.3.2"
+channels-redis = "^4.3.0"
+celery = "^5.6.3"
+redis = "^5.3.1"
+boto3 = "^1.43.100"
+requests = "^2.34.2"
+python-dotenv = "^1.2.3"
+reportlab = "^4.4.1"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "^7.16.1"
+factory-boy = "^3.3.3"
+faker = "^40.39.0"
+pytest = "^8.4.2"
+pytest-django = "^4.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

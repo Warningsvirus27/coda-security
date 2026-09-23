@@ -1,0 +1,44 @@
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #212529;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.card {
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  border-radius: 0.5rem;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.table th {
+  white-space: nowrap;
+}
+
+.badge-critical {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.badge-high {
+  background-color: #fd7e14;
+  color: #fff;
+}
+
+.badge-medium {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.badge-low {
+  background-color: #0dcaf0;
+  color: #000;
+}
+
+.badge-info {
+  background-color: #6c757d;
+  color: #fff;
+}

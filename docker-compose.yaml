@@ -1,0 +1,103 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Redis Broker & Channel Layer
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: securecoda-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Django Backend (Daphne ASGI + Channels + REST Framework)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: securecoda-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./secrets.local.json:/app/secrets.local.json
+    environment:
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-True}
+      - SECRETS_SOURCE=${SECRETS_SOURCE:-LOCAL}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Celery Background Worker (Asynchronous security scans & remediation)
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: securecoda-celery-worker
+    command: celery -A securecoda worker -l info
+    volumes:
+      - ./backend:/app
+      - ./secrets.local.json:/app/secrets.local.json
+    environment:
+      - SECRETS_SOURCE=${SECRETS_SOURCE:-LOCAL}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat Scheduler (Periodic automated scanning)
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: securecoda-celery-beat
+    command: celery -A securecoda beat -l info
+    volumes:
+      - ./backend:/app
+      - ./secrets.local.json:/app/secrets.local.json
+    environment:
+      - SECRETS_SOURCE=${SECRETS_SOURCE:-LOCAL}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # React Frontend (Bootstrap 5 UI + Real-time WebSocket + Dashboard)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: securecoda-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_WS_URL=ws://localhost:8000/ws/alerts/
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# ---------------------------------------------------------------------------
+# Multi-Environment Profiles:
+#   Local:       docker compose --profile local up (or default docker compose up)
+#   Staging:     docker compose -f docker-compose.yaml --env-file .env.staging up
+#   Production:  docker compose -f docker-compose.yaml --env-file .env.prod up
+# ---------------------------------------------------------------------------

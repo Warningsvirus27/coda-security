@@ -1,0 +1,69 @@
+# Environments & Virtual Envs
+venv/
+.venv/
+env/
+ENV/
+backend/venv/
+backend/.venv/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*/*/__pycache__/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/build/
+build/
+dist/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & State
+*.sqlite3
+*.db
+db.sqlite3
+backend/db.sqlite3
+
+# Secrets & Local Configurations
+secrets.local.json
+backend/secrets.local.json
+.env
+.env.local
+.env.staging
+.env.prod
+*.pem
+*.key
+*.cert
+
+# Logs
+*.log
+logs/
+backend/logs/
+
+# IDEs & System Artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

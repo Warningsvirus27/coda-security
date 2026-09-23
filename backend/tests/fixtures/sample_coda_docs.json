@@ -1,0 +1,20 @@
+[
+  {
+    "id": "doc_fixture_01",
+    "name": "Q3 Infrastructure Access & Secrets",
+    "owner": "devops@metronlabs.com",
+    "createdAt": "2026-06-01T10:00:00Z",
+    "updatedAt": "2026-09-01T15:30:00Z",
+    "browserLink": "https://coda.io/d/Infra-Access_d01",
+    "published": { "browserLink": "" }
+  },
+  {
+    "id": "doc_fixture_02",
+    "name": "Public Marketing Feedback Hub",
+    "owner": "growth@metronlabs.com",
+    "createdAt": "2026-05-15T08:00:00Z",
+    "updatedAt": "2026-09-20T12:00:00Z",
+    "browserLink": "https://coda.io/d/Public-Feedback_d02",
+    "published": { "browserLink": "https://coda.io/@growth/public-hub" }
+  }
+]

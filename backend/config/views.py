@@ -65,36 +65,49 @@ class ConfigViewSet(viewsets.ViewSet):
         serializer = ValidateTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        token = serializer.validated_data.get('token')
+        token = (serializer.validated_data.get('token') or '').strip()
         if not token:
             config = ScanConfig.get_config()
             token = config.coda_api_token
 
         if not token:
             return Response(
-                {'valid': False, 'message': 'No Coda API token provided.'},
+                {'valid': False, 'message': 'No Coda API token provided. Please enter a token to test.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         client = CodaClient(api_token=token)
         whoami = client.whoami()
 
-        if whoami.get('valid'):
+        # Check if valid was set to True, or if user metadata exists in the response
+        is_valid = whoami.get('valid') is True or bool(
+            whoami.get('user') or whoami.get('name') or whoami.get('id') or whoami.get('loginId')
+        )
+        if whoami.get('valid') is False:
+            is_valid = False
+
+        if is_valid:
+            user_data = whoami.get('user') or {
+                'id': whoami.get('id', ''),
+                'name': whoami.get('name') or whoami.get('loginId') or 'Coda User',
+                'email': whoami.get('email') or whoami.get('loginId') or '',
+            }
+            display_name = user_data.get('name') or user_data.get('email') or 'user'
             ActivityLogger.log(
                 request=request,
                 action='TOKEN_VALIDATED',
-                description=f"Coda API key validated successfully for {whoami.get('user', {}).get('name', 'user')}",
-                details={'user': whoami.get('user')},
+                description=f"Coda API key validated successfully for {display_name}",
+                details={'user': user_data},
             )
             return Response({
                 'valid': True,
-                'message': 'Coda API token is valid and active.',
-                'user': whoami.get('user'),
+                'message': f"Coda API token is valid! Connected as {display_name}.",
+                'user': user_data,
             })
         else:
             return Response({
                 'valid': False,
-                'message': whoami.get('error', 'Authentication failed with Coda API.'),
+                'message': whoami.get('error', 'Authentication failed with Coda API. Please check your token.'),
             }, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'], url_path='slack-status')

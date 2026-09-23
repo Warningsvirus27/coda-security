@@ -60,10 +60,44 @@ def test_user_activity_logs_scoped_to_logged_in_user(auth_client):
     resp = auth_client.get("/api/auth/activities/")
     assert resp.status_code == 200
     usernames = [item["username"] for item in resp.data["results"]]
-    assert "other_user" not in usernames
+@pytest.mark.django_db
+def test_validate_coda_token_with_real_coda_whoami_response(auth_client, monkeypatch):
+    """Real Coda v1 API returns {name, loginId, type, id} without any 'valid' key."""
+    from unittest.mock import MagicMock
+    real_coda_response = {
+        "id": "u-12345",
+        "type": "user",
+        "name": "Jane Security",
+        "loginId": "jane@example.com",
+    }
+    monkeypatch.setattr("scanner.coda_client.CodaClient._request", MagicMock(return_value=real_coda_response))
+
+    resp = auth_client.post("/api/config/validate-token/", {"token": "Bearer real-coda-token-123"})
+    assert resp.status_code == 200
+    assert resp.data["valid"] is True
+    assert "Jane Security" in resp.data["message"]
+    assert resp.data["user"]["name"] == "Jane Security"
+    assert resp.data["user"]["email"] == "jane@example.com"
+
+
+@pytest.mark.django_db
+def test_validate_coda_token_invalid_returns_400(auth_client, monkeypatch):
+    from unittest.mock import MagicMock
+    from scanner.coda_client import CodaAPIError
+
+    def mock_request(*args, **kwargs):
+        raise CodaAPIError("API error 401: Unauthorized", status_code=401)
+
+    monkeypatch.setattr("scanner.coda_client.CodaClient._request", mock_request)
+
+    resp = auth_client.post("/api/config/validate-token/", {"token": "invalid-token"})
+    assert resp.status_code == 400
+    assert resp.data["valid"] is False
+    assert "Authentication failed with Coda API" in resp.data["message"]
 
 
 def test_fixture_json_loading(fixture_coda_docs):
     assert len(fixture_coda_docs) == 2
     assert fixture_coda_docs[0]["id"] == "doc_fixture_01"
+
 

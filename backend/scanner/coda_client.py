@@ -37,7 +37,12 @@ class CodaClient:
     BASE_URL = 'https://coda.io/apis/v1'
 
     def __init__(self, api_token: Optional[str] = None):
-        self.api_token = api_token or settings.CODA_API_TOKEN
+        raw_token = api_token or settings.CODA_API_TOKEN or ''
+        if isinstance(raw_token, str):
+            raw_token = raw_token.strip()
+            if raw_token.lower().startswith('bearer '):
+                raw_token = raw_token[7:].strip()
+        self.api_token = raw_token
         self.session = requests.Session()
         self.session.headers.update({
             'Authorization': f'Bearer {self.api_token}',
@@ -130,9 +135,58 @@ class CodaClient:
         Validate the API token and return user info.
         GET /whoami
         """
-        result = self._request('GET', '/whoami')
-        logger.info("Authenticated as: %s", result.get('name', 'unknown'))
-        return result
+        try:
+            result = self._request('GET', '/whoami')
+            # If the response already contains 'valid' (e.g. from tests)
+            if 'valid' in result:
+                return result
+
+            name = result.get('name') or result.get('loginId') or result.get('email') or 'Coda User'
+            email = result.get('loginId') or result.get('email') or ''
+            user_data = result.get('user') or {
+                'id': result.get('id', ''),
+                'name': name,
+                'email': email,
+                'type': result.get('type', 'user'),
+            }
+            logger.info("Authenticated Coda user: %s (%s)", name, email)
+            return {
+                'valid': True,
+                'user': user_data,
+                'name': name,
+                'raw': result,
+            }
+        except CodaAPIError as e:
+            logger.warning("Coda API authentication error on /whoami: %s", str(e))
+            error_msg = 'Invalid Coda API token or unauthorized access.'
+            if e.status_code == 401:
+                error_msg = 'Authentication failed with Coda API. Please check that your API token is active and valid.'
+            elif e.status_code == 403:
+                error_msg = 'Coda API token does not have permission to access the workspace.'
+            elif e.response_body:
+                try:
+                    import json
+                    parsed = json.loads(e.response_body)
+                    error_msg = parsed.get('message') or error_msg
+                except Exception:
+                    pass
+            return {
+                'valid': False,
+                'error': error_msg,
+                'status_code': e.status_code,
+            }
+        except requests.RequestException as e:
+            logger.warning("Network error reaching Coda API: %s", str(e))
+            return {
+                'valid': False,
+                'error': f"Unable to reach Coda API: {str(e)}",
+            }
+        except Exception as e:
+            logger.error("Unexpected error in whoami: %s", str(e))
+            return {
+                'valid': False,
+                'error': f"Coda API check failed: {str(e)}",
+            }
 
     # ------------------------------------------------------------------
     # Documents

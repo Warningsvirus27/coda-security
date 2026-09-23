@@ -45,125 +45,16 @@ def _notify_websocket(event_type: str, data: dict):
         logger.debug("Could not send WebSocket notification: %s", str(e))
 
 
-def ensure_initial_seed_data():
-    """Seeds initial sample documents and vulnerabilities for demo/evaluation if DB is empty."""
-    if CodaDocument.objects.count() > 0:
-        return
-
-    now = timezone.now()
-    doc1 = CodaDocument.objects.create(
-        doc_id='doc-financial-q3-2024',
-        name='Q3 Financial Operations & Vendor Payouts',
-        owner_email='finance-lead@company.com',
-        created_at=now - timedelta(days=120),
-        updated_at=now - timedelta(days=105),
-        is_published=False,
-        sharing_mode='org',
-        browser_link='https://coda.io/d/Q3-Financial_ddoc1',
-    )
-    doc2 = CodaDocument.objects.create(
-        doc_id='doc-customer-support-crm',
-        name='Customer Support CRM & Live Escrow Logs',
-        owner_email='support-ops@company.com',
-        created_at=now - timedelta(days=45),
-        updated_at=now - timedelta(days=2),
-        is_published=True,
-        sharing_mode='public',
-        browser_link='https://coda.io/d/Customer-Support_ddoc2',
-    )
-    doc3 = CodaDocument.objects.create(
-        doc_id='doc-developer-onboarding',
-        name='DevOps & Cloud Infrastructure Credentials',
-        owner_email='devops@company.com',
-        created_at=now - timedelta(days=60),
-        updated_at=now - timedelta(days=14),
-        is_published=False,
-        sharing_mode='org',
-        browser_link='https://coda.io/d/DevOps-Infra_ddoc3',
-    )
-    doc4 = CodaDocument.objects.create(
-        doc_id='doc-archived-marketing-2023',
-        name='Legacy Marketing Campaign Analysis 2023',
-        owner_email='marketing@company.com',
-        created_at=now - timedelta(days=360),
-        updated_at=now - timedelta(days=150),
-        is_published=False,
-        sharing_mode='private',
-        browser_link='https://coda.io/d/Marketing-2023_ddoc4',
-    )
-
-    # Initial sample alerts
-    Alert.objects.get_or_create(
-        fingerprint='seed-public-crm-alert',
-        defaults={
-            'document': doc2,
-            'category': Alert.Category.PUBLIC_SHARING,
-            'severity': Alert.Severity.CRITICAL,
-            'status': Alert.Status.OPEN,
-            'title': 'Public Access Enabled: Customer Support CRM',
-            'description': 'Document is published to the public internet without domain-level restriction.',
-            'metadata': {'sharing_mode': 'public', 'is_published': True, 'permission_id': 'perm_pub_9921'},
-        }
-    )
-    Alert.objects.get_or_create(
-        fingerprint='seed-api-key-devops-alert',
-        defaults={
-            'document': doc3,
-            'category': Alert.Category.SENSITIVE_TABLE,
-            'severity': Alert.Severity.CRITICAL,
-            'status': Alert.Status.OPEN,
-            'title': 'Live AWS/Stripe API Key Exposed in Table',
-            'description': 'Found unmasked live API credential (sk_live_••••••••) in column "Prod_Secret" row 4.',
-            'metadata': {
-                'table_id': 'grid_credentials',
-                'row_id': 'i-row_88291',
-                'column_name': 'Prod_Secret',
-                'matched_pattern': 'api_key',
-                'masked_value': 'sk_live_••••••••9a12',
-            }
-        }
-    )
-    Alert.objects.get_or_create(
-        fingerprint='seed-unused-marketing-alert',
-        defaults={
-            'document': doc4,
-            'category': Alert.Category.UNUSED_DOC,
-            'severity': Alert.Severity.MEDIUM,
-            'status': Alert.Status.OPEN,
-            'title': 'Unused document: "Legacy Marketing Campaign Analysis 2023"',
-            'description': 'This document has not been modified in 150 days (threshold: 90 days).',
-            'metadata': {'days_since_update': 150, 'threshold_days': 90},
-        }
-    )
-    Alert.objects.get_or_create(
-        fingerprint='seed-sensitive-ssn-financial-alert',
-        defaults={
-            'document': doc1,
-            'category': Alert.Category.SENSITIVE_TABLE,
-            'severity': Alert.Severity.HIGH,
-            'status': Alert.Status.OPEN,
-            'title': 'PII & SSN Pattern Found in Vendor Payouts',
-            'description': 'Found Social Security Number pattern in column "Tax_ID" row 12.',
-            'metadata': {
-                'table_id': 'grid_payouts',
-                'row_id': 'i-row_55142',
-                'column_name': 'Tax_ID',
-                'matched_pattern': 'ssn',
-                'masked_value': '•••-••-6789',
-            }
-        }
-    )
-
-
 @shared_task(bind=True, max_retries=1)
 def sync_documents(self):
     """
     Sync document metadata from Coda API to the local database.
+    Only executes if a Coda API authentication token is configured.
     """
     config = ScanConfig.get_config()
     if not config.coda_api_token:
-        ensure_initial_seed_data()
-        return {'status': 'completed', 'message': 'Demo documents active (No live token)'}
+        logger.info("No Coda API token configured. Skipping document sync.")
+        return {'status': 'no_token', 'message': 'No Coda API token configured'}
 
     client = CodaClient(api_token=config.coda_api_token)
     synced_count = 0
@@ -202,9 +93,12 @@ def sync_documents(self):
 def run_full_scan(self, trigger='scheduled'):
     """
     Execute a full security scan across all monitored documents.
+    Only executes if a Coda API authentication token is configured.
     """
     config = ScanConfig.get_config()
-    ensure_initial_seed_data()
+    if not config.coda_api_token:
+        logger.info("No Coda API token configured. Skipping scan.")
+        return {'status': 'no_token', 'message': 'No Coda API token configured'}
 
     scan_run = ScanRun.objects.create(trigger=trigger)
     logger.info("Starting scan run %s (trigger=%s)", scan_run.id, trigger)

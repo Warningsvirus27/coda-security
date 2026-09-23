@@ -43,6 +43,20 @@ class ConfigViewSet(viewsets.ViewSet):
             },
         )
 
+        # Trigger sync and scan automatically if a valid Coda API token is configured
+        if config.coda_api_token:
+            from scanner.tasks import sync_documents, run_full_scan
+            try:
+                sync_documents.delay()
+                run_full_scan.delay(trigger='config_update')
+            except Exception as e:
+                logger.warning("Could not dispatch async Celery scan task (%s), running synchronously.", e)
+                try:
+                    sync_documents()
+                    run_full_scan(trigger='config_update')
+                except Exception as inner_e:
+                    logger.warning("Synchronous scan error: %s", inner_e)
+
         return Response(ScanConfigSerializer(config).data)
 
     @action(detail=False, methods=['post'], url_path='validate-token')

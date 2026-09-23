@@ -173,6 +173,39 @@ export default function App() {
           </div>
         )}
 
+        {/* Guided Workflow Onboarding Banners */}
+        {!currentUser ? (
+          <div className="alert alert-primary d-flex align-items-center justify-content-between p-3 mb-4 shadow-sm border-0">
+            <div className="d-flex align-items-center gap-3">
+              <i className="bi bi-person-circle fs-2 text-primary"></i>
+              <div>
+                <h6 className="fw-bold mb-1">Step 1: Sign In or Register</h6>
+                <p className="mb-0 small text-muted">
+                  Log in to your account to configure your Coda workspace API key and begin scanning documents for security exposures.
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-primary btn-sm d-flex align-items-center gap-1 text-nowrap" onClick={() => setShowAuthModal(true)}>
+              <i className="bi bi-box-arrow-in-right"></i> Sign In
+            </button>
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-4 shadow-sm border-0">
+            <div className="d-flex align-items-center gap-3">
+              <i className="bi bi-key-fill fs-2 text-warning"></i>
+              <div>
+                <h6 className="fw-bold mb-1">Step 2: Connect Coda Workspace</h6>
+                <p className="mb-0 small text-dark">
+                  No Coda API key configured yet. Click <strong>Settings</strong> to enter your Coda API key and start monitoring.
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-warning btn-sm d-flex align-items-center gap-1 text-nowrap fw-semibold" onClick={() => setShowSettingsModal(true)}>
+              <i className="bi bi-gear-fill"></i> Add Coda Key in Settings
+            </button>
+          </div>
+        ) : null}
+
         {/* Header Title Bar */}
         <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 pb-2 border-bottom">
           <div>
@@ -233,9 +266,18 @@ export default function App() {
       <SettingsModal
         show={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        onConfigSaved={() => {
-          showToast('Settings saved. Timeframe & token updated.', 'success');
-          fetchData();
+        onConfigSaved={async () => {
+          showToast('Coda API key saved! Synchronizing workspace documents and scanning exposures...', 'info');
+          try {
+            await ApiClient.syncDocuments();
+            await ApiClient.triggerScan();
+            setTimeout(() => {
+              fetchData();
+              showToast('Documents scanned successfully! Exposures updated.', 'success');
+            }, 3000);
+          } catch (err) {
+            fetchData();
+          }
         }}
       />
 

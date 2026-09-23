@@ -58,6 +58,8 @@ backend/secrets.local.json
 *.log
 logs/
 backend/logs/
+celerybeat-schedule
+celerybeat-schedule.*
 
 # IDEs & System Artifacts
 .idea/

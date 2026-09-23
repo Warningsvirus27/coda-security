@@ -20,6 +20,7 @@ class UserActivityLogSerializer(serializers.ModelSerializer):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         username_or_email = request.data.get('username') or request.data.get('email')
@@ -73,6 +74,7 @@ class LoginView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         username = request.data.get('username', '').strip()
@@ -162,6 +164,7 @@ class GoogleSSOView(APIView):
     Creates or links local user and logs in session.
     """
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()

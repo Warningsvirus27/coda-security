@@ -1,4 +1,18 @@
-const API_BASE = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
+const getApiBase = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    // If running on port 3000 through Nginx proxy, use relative /api
+    if (window.location.port === '3000') {
+      return '/api';
+    }
+    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  }
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE = getApiBase();
 
 class ApiClient {
   static getCsrfToken() {
